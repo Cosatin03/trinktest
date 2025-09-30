@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bustrinker – Pyramide</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍻</text></svg>">
+</head>
+<body>
+
+  <!-- MAIN MENU -->
+  <div id="main-menu-view" class="view active">
+    <div class="container">
+      <h1>Bustrinker 🍻</h1>
+      <input id="nickname-input" type="text" placeholder="Nickname" maxlength="15" />
+      <div class="btn-col">
+        <button id="join-btn">Beitreten</button>
+        <button id="host-btn">Host</button>
+        <button id="display-btn">Display</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HOST LOBBY -->
+  <div id="host-lobby-view" class="view">
+    <div class="container">
+      <button class="back-btn">← Zurück</button>
+      <h2>Host – Spiel erstellen</h2>
+
+      <div class="settings">
+        <div class="setting-item">
+          <label>Deck:</label>
+          <div class="row gap">
+            <button id="deck-small-btn" class="toggle-btn active">Kleines Deck</button>
+            <button id="deck-large-btn" class="toggle-btn">Großes Deck</button>
+          </div>
+        </div>
+        <div class="setting-item">
+          <label for="pyramid-rows-input">Pyramiden-Reihen (3–7):</label>
+          <input id="pyramid-rows-input" type="number" min="3" max="7" step="1" value="5" />
+        </div>
+        <div class="setting-item">
+          <label class="checkbox-row">
+            <input id="external-display-checkbox" type="checkbox" />
+            <span>Externen Bildschirm verwenden</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="lobby-info">
+        <div class="row space">
+          <h3>Room Code: <span id="room-code-display">----</span></h3>
+          <span id="display-status" class="muted hidden">Wartet auf Display…</span>
+        </div>
+        <h4>Spieler (<span id="player-count">1</span>/7)</h4>
+        <ul id="player-list-host"></ul>
+        <button id="start-game-btn" disabled>Warte auf Spieler…</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JOIN LOBBY -->
+  <div id="join-lobby-view" class="view">
+    <div class="container">
+      <button class="back-btn">← Zurück</button>
+      <h2>Spiel beitreten</h2>
+      <div class="row gap">
+        <input id="room-code-input" type="text" inputmode="numeric" pattern="\d*" placeholder="Room Code" />
+        <button id="join-game-btn">Beitreten</button>
+      </div>
+      <div id="waiting-area" class="hidden">
+        <h3>Warte auf Start durch Host…</h3>
+        <h4>Beigetretene Spieler</h4>
+        <ul id="player-list-joiner"></ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- DISPLAY JOIN -->
+  <div id="display-join-view" class="view">
+    <div class="container">
+      <button class="back-btn">← Zurück</button>
+      <h2>Display verbinden</h2>
+      <div class="row gap">
+        <input id="display-room-code-input" type="text" inputmode="numeric" pattern="\d*" placeholder="Room Code" />
+        <button id="join-display-btn">Als Display beitreten</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PLAYER GAME VIEW -->
+  <div id="player-game-view" class="view game-view">
+    <div id="game-info-bar">
+      <div id="player-sips">Deine Schlücke: 0</div>
+      <div id="turn-info">Warte auf Host…</div>
+    </div>
+
+    <div class="card-area">
+      <h4>Erhaltene Karten</h4>
+      <div id="received-cards-container" class="hand-container">
+        <div class="placeholder-text">Hier erscheinen Karten, die du von anderen erhältst.</div>
+      </div>
+    </div>
+
+    <div class="card-area">
+      <h4>Deine Hand</h4>
+      <div id="player-hand-container" class="hand-container">
+        <div class="placeholder-text">Deine Hand erscheint hier, sobald das Spiel startet.</div>
+      </div>
+    </div>
+
+    <button id="next-turn-btn" class="hidden">Nächste Karte aufdecken</button>
+  </div>
+
+  <!-- DISPLAY GAME VIEW -->
+  <div id="display-game-view" class="view game-view">
+    <div id="display-players-container"></div>
+    <div id="pyramid-container">
+      <div class="placeholder-text">Die Pyramide erscheint hier, sobald das Spiel startet.</div>
+    </div>
+    <div id="action-log">Warte auf Spielstart…</div>
+  </div>
+
+  <!-- OVERLAY -->
+  <div id="interaction-overlay" class="hidden">
+    <div id="interaction-content"></div>
+  </div>
+
+  <script type="module" src="firebase-config.js"></script>
+  <script type="module" src="main.js"></script>
+</body>
+</html>
