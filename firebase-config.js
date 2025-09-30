@@ -21,3 +21,4 @@ const app = initializeApp(firebaseConfig);
 
 // Die Datenbank-Instanz exportieren, damit sie in main.js verwendet werden kann
 export const db = getDatabase(app);
+
