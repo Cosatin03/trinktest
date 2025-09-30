@@ -1,133 +1,717 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Bustrinker – Pyramide</title>
-  <link rel="stylesheet" href="style.css" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍻</text></svg>">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Spiel Lobby</title>
+    <style>
+        body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:#f0f2f5;color:#1c1e21;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;padding:20px 0}
+        .container{background:#fff;padding:20px 40px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.15);width:100%;max-width:520px;text-align:center}
+        .screen{display:none}.screen.active{display:block}
+        h1,h2,h3{color:#0d6efd;margin-top:0}
+        input[type=text]{width:calc(100% - 22px);padding:10px;margin-bottom:15px;border:1px solid #ddd;border-radius:6px;font-size:16px}
+        button{background:#0d6efd;color:#fff;border:none;padding:12px 20px;border-radius:6px;font-size:16px;cursor:pointer;width:100%;margin-bottom:10px;transition:background-color .2s}
+        button:hover{background:#0b5ed7}button:disabled{background:#a0c7ff;cursor:not-allowed}
+        .secondary-button{background:#6c757d}.secondary-button:hover{background:#5c636a}
+        ul{list-style:none;padding:0;text-align:left;margin-top:20px;border-top:1px solid #eee}
+        li{padding:10px;border-bottom:1px solid #eee}
+        .room-code,.display-code{font-size:24px;font-weight:700;padding:10px;border-radius:6px;margin:15px 0}
+        .room-code{color:#198754;background:#e9f5ec}.display-code{color:#fd7e14;background:#fff8e1}
+        .settings-form{text-align:left;margin-top:20px;padding:15px;border:1px solid #ddd;border-radius:6px}
+        .settings-form label{display:block;margin-bottom:10px}.settings-form select{width:100%;padding:8px;border-radius:4px}
+        .checkbox-label{display:flex;align-items:center;margin-top:15px}
+        .checkbox-label input{width:auto;margin-right:10px}
+        .game-section{margin-top:20px;padding:15px;border-radius:8px}
+        #my-hand{background:#eef}#received-cards{background:#d6f5d6}
+        #public-info,#display-content{background:#f8f9fa;border:1px solid #dee2e6}
+        
+        /* Card Styling */
+        .card{display:inline-block;width:60px;height:90px;background:#fff;border-radius:5px;margin:4px;box-shadow:0 2px 4px rgba(0,0,0,.15);vertical-align:middle;line-height:0;}
+        .card svg{width:100%;height:100%;}
+        .card.interactive:not(.revealed){cursor:pointer}
+        
+        .pyramid-row{display:flex;justify-content:center;height:95px;}
+        #give-card-controls{background:#fffbe6;padding:15px;border-radius:8px;margin-top:20px;border:1px solid #ffe58f}
+        .card-assignment-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee}
+        .card-assignment-row:last-child{border-bottom:none}
+        .card-assignment-row .card{margin:0;width:40px;height:60px;}
+        .card-assignment-row select{width:60%;padding:6px;border-radius:4px}
+        @keyframes highlight{0%{transform:scale(1)}50%{transform:scale(1.05);box-shadow:0 0 15px #28a745}100%{transform:scale(1)}}
+        .highlight-animation{animation:highlight 1.5s ease-in-out}
+        .overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);display:flex;justify-content:center;align-items:center;z-index:1000}
+        .overlay-content{background:#fff;padding:30px;border-radius:10px;text-align:center;box-shadow:0 5px 15px rgba(0,0,0,.3)}
+        .overlay-content h2{color:#28a745}.overlay-content button{margin-top:20px;width:auto;padding:10px 30px}
+        .trigger-badge{display:inline-block;padding:6px 10px;border-radius:999px;background:#e7f1ff;color:#0d6efd;font-weight:700;margin-left:6px}
+        .muted{color:#6c757d;font-size:14px;margin-top:10px}
+    </style>
 </head>
 <body>
-
-  <!-- MAIN MENU -->
-  <div id="main-menu-view" class="view active">
-    <div class="container">
-      <h1>Bustrinker 🍻</h1>
-      <input id="nickname-input" type="text" placeholder="Nickname" maxlength="15" />
-      <div class="btn-col">
-        <button id="join-btn">Beitreten</button>
-        <button id="host-btn">Host</button>
-        <button id="display-btn">Display</button>
-      </div>
+<div class="container">
+    <!-- Screen 1: Home -->
+    <div id="home-screen" class="screen active">
+        <h1>Willkommen!</h1>
+        <input type="text" id="nickname-input" placeholder="Dein Nickname">
+        <button onclick="hostGame()">Spiel hosten</button>
+        <hr>
+        <input type="text" id="room-code-input" placeholder="Raum-Code" style="text-transform:uppercase">
+        <button class="secondary-button" onclick="joinGame()">Spiel beitreten</button>
+        <hr>
+        <input type="text" id="display-code-input" placeholder="Display-Code">
+        <button class="secondary-button" style="background-color:#fd7e14" onclick="joinAsDisplay()">Als Display beitreten</button>
     </div>
-  </div>
 
-  <!-- HOST LOBBY -->
-  <div id="host-lobby-view" class="view">
-    <div class="container">
-      <button class="back-btn">← Zurück</button>
-      <h2>Host – Spiel erstellen</h2>
-
-      <div class="settings">
-        <div class="setting-item">
-          <label>Deck:</label>
-          <div class="row gap">
-            <button id="deck-small-btn" class="toggle-btn active">Kleines Deck</button>
-            <button id="deck-large-btn" class="toggle-btn">Großes Deck</button>
-          </div>
+    <!-- Screen 2: Lobby -->
+    <div id="lobby-screen" class="screen">
+        <h2>Lobby</h2>
+        <p>Raum-Code:</p><div class="room-code" id="room-code-display"></div>
+        <p><strong id="player-count">0</strong>/10 Spieler:</p><ul id="player-list"></ul>
+        <div id="host-controls" style="display:none">
+            <div class="settings-form">
+                <label>Kartenanzahl:
+                    <select id="card-count-select" onchange="updateSettings()">
+                        <option value="32">32 (Skat)</option>
+                        <option value="52">52 (Poker)</option>
+                    </select>
+                </label>
+                <label>Anzahl Reihen:
+                    <select id="row-count-select" onchange="updateSettings()">
+                        <option value="3">3</option><option value="4">4</option>
+                        <option value="5">5</option><option value="6">6</option>
+                        <option value="7">7</option><option value="8">8</option>
+                    </select>
+                </label>
+                <label class="checkbox-label"><input type="checkbox" id="external-display-checkbox" onchange="updateSettings()"> Externes Display?</label>
+            </div>
+            <div id="display-code-area" style="display:none">
+                <p>Display-Code:</p><div class="display-code" id="display-code-display"></div>
+            </div>
+            <button id="start-game-button" onclick="startGame()" disabled>Spiel starten</button>
         </div>
-        <div class="setting-item">
-          <label for="pyramid-rows-input">Pyramiden-Reihen (3–7):</label>
-          <input id="pyramid-rows-input" type="number" min="3" max="7" step="1" value="5" />
+        <div id="player-wait-message" style="display:none">
+            <p>Warte, bis der Host startet...</p>
+            <div id="player-settings-display"></div>
         </div>
-        <div class="setting-item">
-          <label class="checkbox-row">
-            <input id="external-display-checkbox" type="checkbox" />
-            <span>Externen Bildschirm verwenden</span>
-          </label>
+    </div>
+
+    <!-- Screen 3: Game (für Spieler) -->
+    <div id="game-screen" class="screen">
+        <h1>Spiel läuft!</h1>
+        <div id="host-game-controls" style="display:none">
+            <button id="reveal-pyramid-card-button" onclick="revealNextPyramidCardByHost()">Pyramiden-Karte aufdecken</button>
+            <button id="reveal-discard-card-button" onclick="revealNextDiscardCard()">Reststapel-Karte aufdecken</button>
+            <div class="muted" id="host-wait-hint" style="display:none">Warten auf Abgaben/Bestätigungen…</div>
         </div>
-      </div>
-
-      <div class="lobby-info">
-        <div class="row space">
-          <h3>Room Code: <span id="room-code-display">----</span></h3>
-          <span id="display-status" class="muted hidden">Wartet auf Display…</span>
+        <div id="public-info" class="game-section">
+            <h3>Pyramide</h3><div id="pyramid-area-player"></div>
+            <h3>Aufgedeckte Restkarten</h3><div id="public-revealed-cards">Keine</div>
+            <p class="muted">Aktiver Buchstabe:<span id="active-trigger-player" class="trigger-badge">–</span></p>
         </div>
-        <h4>Spieler (<span id="player-count">1</span>/7)</h4>
-        <ul id="player-list-host"></ul>
-        <button id="start-game-btn" disabled>Warte auf Spieler…</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- JOIN LOBBY -->
-  <div id="join-lobby-view" class="view">
-    <div class="container">
-      <button class="back-btn">← Zurück</button>
-      <h2>Spiel beitreten</h2>
-      <div class="row gap">
-        <input id="room-code-input" type="text" inputmode="numeric" pattern="\d*" placeholder="Room Code" />
-        <button id="join-game-btn">Beitreten</button>
-      </div>
-      <div id="waiting-area" class="hidden">
-        <h3>Warte auf Start durch Host…</h3>
-        <h4>Beigetretene Spieler</h4>
-        <ul id="player-list-joiner"></ul>
-      </div>
-    </div>
-  </div>
-
-  <!-- DISPLAY JOIN -->
-  <div id="display-join-view" class="view">
-    <div class="container">
-      <button class="back-btn">← Zurück</button>
-      <h2>Display verbinden</h2>
-      <div class="row gap">
-        <input id="display-room-code-input" type="text" inputmode="numeric" pattern="\d*" placeholder="Room Code" />
-        <button id="join-display-btn">Als Display beitreten</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- PLAYER GAME VIEW -->
-  <div id="player-game-view" class="view game-view">
-    <div id="game-info-bar">
-      <div id="player-sips">Deine Schlücke: 0</div>
-      <div id="turn-info">Warte auf Host…</div>
+        <div id="my-hand" class="game-section">
+            <h3>Deine Handkarten</h3><div id="hand-cards-display"></div>
+        </div>
+        <div id="received-cards" class="game-section" style="display:none">
+            <h3>Erhaltene Karten</h3><div id="received-cards-display"></div>
+        </div>
+        <div id="give-card-controls" style="display:none">
+            <p><strong>Aktion!</strong> Weise jede deiner Karten mit dem aktiven Buchstaben einem Spieler zu. Gibst du alle ab, zählen die Punkte doppelt!</p>
+            <div id="card-assignment-area"></div>
+            <button onclick="giveCard()">Ausgewählte Karten abgeben</button>
+            <div class="muted">Weiter geht’s erst, wenn alle Pflicht-Geber abgegeben haben und alle Empfänger bestätigt haben.</div>
+        </div>
+        <hr>
+        <p>Spieler (Score):</p><ul id="game-player-list"></ul>
     </div>
 
-    <div class="card-area">
-      <h4>Erhaltene Karten</h4>
-      <div id="received-cards-container" class="hand-container">
-        <div class="placeholder-text">Hier erscheinen Karten, die du von anderen erhältst.</div>
-      </div>
+    <!-- Screen 4: Display (für externes Gerät) -->
+    <div id="display-screen" class="screen">
+        <h1>Externes Display</h1>
+        <div id="display-content" class="game-section">
+            <h3>Pyramide</h3><div id="pyramid-area-display"></div>
+            <hr><h3>Aufgedeckte Restkarten</h3><div id="display-revealed-cards"></div>
+            <p class="muted">Aktiver Buchstabe:<span id="active-trigger-display" class="trigger-badge">–</span></p>
+        </div>
     </div>
+</div>
 
-    <div class="card-area">
-      <h4>Deine Hand</h4>
-      <div id="player-hand-container" class="hand-container">
-        <div class="placeholder-text">Deine Hand erscheint hier, sobald das Spiel startet.</div>
-      </div>
+<!-- Overlay für Kartenbestätigung -->
+<div id="card-received-overlay" class="overlay" style="display:none">
+    <div class="overlay-content">
+        <h2>Karten erhalten!</h2>
+        <p>Du hast die Karte(n) <strong id="received-card-value"></strong> erhalten.</p>
+        <button onclick="confirmReceivedCard()">Bestätigen</button>
     </div>
+</div>
 
-    <button id="next-turn-btn" class="hidden">Nächste Karte aufdecken</button>
-  </div>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script>
+/* ================== CONFIG & GLOBALS ================== */
+const firebaseConfig = { apiKey:"AIzaSyAw5zRVmbvHGJUFKV0LGthGWsE4EqPN-Bw", authDomain:"bust-42c39.firebaseapp.com", projectId:"bust-42c39" };
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
 
-  <!-- DISPLAY GAME VIEW -->
-  <div id="display-game-view" class="view game-view">
-    <div id="display-players-container"></div>
-    <div id="pyramid-container">
-      <div class="placeholder-text">Die Pyramide erscheint hier, sobald das Spiel startet.</div>
-    </div>
-    <div id="action-log">Warte auf Spielstart…</div>
-  </div>
+let myNickname = '', currentRoomCode = '', isHost = false;
+let unsubscribeRoom, unsubscribeMyHand;
+let currentPlayersInGame = [];
+let playerIsDisplay = false;
 
-  <!-- OVERLAY -->
-  <div id="interaction-overlay" class="hidden">
-    <div id="interaction-content"></div>
-  </div>
+const SVG_SPRITE_URL = 'https://upload.wikimedia.org/wikipedia/commons/c/c9/SVG-cards-1.3-French-style.svg';
+const SUIT_MAP = { 'a': 'C', 'b': 'S', 'c': 'H', 'd': 'D' }; // a=Kreuz, b=Pik, c=Herz, d=Karo
 
-  <script type="module" src="firebase-config.js"></script>
-  <script type="module" src="main.js"></script>
+/* ================== UTIL ================== */
+function showScreen(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+function generateCode(len,isNumeric=false){ const c=isNumeric?'0123456789':'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; let r=''; for(let i=0;i<len;i++) r+=c.charAt(Math.floor(Math.random()*c.length)); return r; }
+
+function generateDeck(cardCount) {
+    const deck = [];
+    const suits = ['a', 'b', 'c', 'd'];
+    let ranks;
+    if (cardCount === 32) { // Skat Deck
+        ranks = ['7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+    } else { // 52-card Poker Deck
+        ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+    }
+    for (const suit of suits) {
+        for (const rank of ranks) {
+            deck.push(suit + rank);
+        }
+    }
+    return deck;
+}
+
+function getTotalRows(pyramidData) { let r = 0, total = 0; while (total < pyramidData.length) { r++; total += r; } return r; }
+
+function getCardSvgId(cardValue) {
+    const suitChar = cardValue.charAt(0);
+    const rank = cardValue.substring(1);
+    const svgSuit = SUIT_MAP[suitChar];
+    if (!svgSuit || !rank) return 'FR-back-blue-2';
+    return `FR-${svgSuit}-${rank}`;
+}
+
+function createCardElement(cardValue, isHidden = false) {
+    const cardEl = document.createElement('div');
+    cardEl.className = 'card';
+    if (cardValue) cardEl.dataset.value = cardValue;
+
+    const svgId = isHidden ? 'FR-back-blue-2' : getCardSvgId(cardValue);
+    if (isHidden) cardEl.classList.add('hidden');
+    
+    cardEl.innerHTML = `<svg viewBox="0 0 170 245"><use xlink:href="${SVG_SPRITE_URL}#${svgId}"></use></svg>`;
+    return cardEl;
+}
+
+
+/* ================== LOBBY ================== */
+async function hostGame(){
+  myNickname = document.getElementById('nickname-input').value.trim();
+  if(!myNickname){ alert('Bitte gib einen Nickname ein.'); return; }
+  isHost = true; playerIsDisplay=false; currentRoomCode = generateCode(6);
+  const roomRef = db.collection('rooms').doc(currentRoomCode);
+  try{
+    await roomRef.set({ host: myNickname, status:'lobby', settings:{cardCount:32,rowCount:3}, externalDisplayEnabled:false, displayCode:null });
+    await roomRef.collection('players').doc(myNickname).set({ joinedAt: firebase.firestore.FieldValue.serverTimestamp(), receivedCards: [], actionConfirmed: true, score: 0 });
+    setupLobbyListeners(currentRoomCode);
+    showScreen('lobby-screen');
+    document.getElementById('room-code-display').innerText = currentRoomCode;
+    document.getElementById('host-controls').style.display = 'block';
+  }catch(e){ console.error(e); alert('Spiel konnte nicht gehostet werden.'); }
+}
+
+async function joinGame(){
+  myNickname = document.getElementById('nickname-input').value.trim();
+  const roomCode = document.getElementById('room-code-input').value.trim().toUpperCase();
+  if(!myNickname || !roomCode){ alert('Nickname und Raum-Code sind erforderlich.'); return; }
+  isHost=false; playerIsDisplay=false; currentRoomCode=roomCode;
+  const roomRef = db.collection('rooms').doc(currentRoomCode);
+  try{
+    const roomDoc = await roomRef.get();
+    if(!roomDoc.exists) throw new Error('Raum existiert nicht.');
+    if(roomDoc.data().status!=='lobby') throw new Error('Spiel hat bereits begonnen.');
+    const playersSnapshot = await roomRef.collection('players').get();
+    if(playersSnapshot.docs.some(d=>d.id===myNickname)) throw new Error('Nickname bereits vergeben.');
+    if(playersSnapshot.size>=10) throw new Error('Raum ist voll.');
+    await roomRef.collection('players').doc(myNickname).set({ joinedAt: firebase.firestore.FieldValue.serverTimestamp(), receivedCards: [], actionConfirmed: true, score: 0 });
+    setupLobbyListeners(currentRoomCode);
+    showScreen('lobby-screen');
+    document.getElementById('room-code-display').innerText = currentRoomCode;
+    document.getElementById('player-wait-message').style.display='block';
+  }catch(e){ console.error(e); alert('Beitreten fehlgeschlagen: '+e.message); }
+}
+
+async function joinAsDisplay(){
+  const displayCode = document.getElementById('display-code-input').value.trim();
+  if(!displayCode){ alert('Bitte gib einen Display-Code ein.'); return; }
+  isHost=false; playerIsDisplay=true;
+  try{
+    const snap = await db.collection('rooms').where('displayCode','==',displayCode).limit(1).get();
+    if(snap.empty) throw new Error('Kein Raum mit diesem Code gefunden.');
+    currentRoomCode = snap.docs[0].id;
+    showScreen('display-screen');
+    setupDisplayListeners(currentRoomCode);
+  }catch(e){ console.error(e); alert('Beitritt als Display fehlgeschlagen.'); }
+}
+
+function updateSettings(){
+  if(!isHost) return;
+  const roomRef = db.collection('rooms').doc(currentRoomCode);
+  roomRef.get().then(doc=>{
+    const currentDisplayCode = doc.data().displayCode;
+    const updates = {
+      'settings.cardCount': parseInt(document.getElementById('card-count-select').value,10),
+      'settings.rowCount': parseInt(document.getElementById('row-count-select').value,10),
+      'externalDisplayEnabled': document.getElementById('external-display-checkbox').checked
+    };
+    if(updates.externalDisplayEnabled && !currentDisplayCode) updates.displayCode = generateCode(4,true);
+    else if(!updates.externalDisplayEnabled) updates.displayCode = null;
+    roomRef.update(updates);
+  });
+}
+
+/* ================== GAME START/STATE ================== */
+async function startGame(){
+  if(!isHost) return;
+  const roomRef = db.collection('rooms').doc(currentRoomCode);
+  const playersRef = roomRef.collection('players');
+  try{
+    const playersSnapshot = await playersRef.get();
+    const players = playersSnapshot.docs.map(doc=>doc.id);
+    if(players.length<2){ alert('Mindestens 2 Spieler werden benötigt.'); return; }
+    await db.runTransaction(async (t)=>{
+      const roomDoc = await t.get(roomRef);
+      if(!roomDoc.exists || roomDoc.data().status!=='lobby') return;
+      const {cardCount,rowCount} = roomDoc.data().settings;
+      let deck = generateDeck(cardCount);
+      deck = deck.sort(()=>Math.random()-0.5);
+      const pyramidCardCount = (rowCount*(rowCount+1))/2;
+      if(pyramidCardCount>=deck.length) throw new Error(`Zu viele Reihen (${rowCount}) für Kartenanzahl (${cardCount}).`);
+      const pyramid = deck.splice(0,pyramidCardCount).map(card=>({cardValue:card,isRevealed:false}));
+      const cardsPerPlayer = Math.floor(deck.length/players.length);
+      const playerHands = {};
+      players.forEach(n=>playerHands[n]=deck.splice(0,cardsPerPlayer));
+      const discardPile = deck;
+      t.update(roomRef,{ status:'in-game', gameState:{ pyramid, discardPile, revealedDiscard:[], currentTrigger:null, currentRow:null, currentPoints:null, requiredGivers:[], giversDone:[] } });
+      for(const n of players) t.update(playersRef.doc(n),{ hand: playerHands[n], actionConfirmed:true, score: (roomDoc.get(`players.${n}.score`)||0) });
+    });
+  }catch(e){ console.error(e); alert('Spiel konnte nicht gestartet werden: '+e.message); }
+}
+
+async function revealPyramidCard(index){
+  const roomRef = db.collection('rooms').doc(currentRoomCode);
+  let triggerCard=null;
+  await db.runTransaction(async (t)=>{
+    const doc = await t.get(roomRef);
+    const gs = doc.data().gameState;
+    if(gs.pyramid[index] && !gs.pyramid[index].isRevealed){
+      gs.pyramid[index].isRevealed = true;
+      triggerCard = gs.pyramid[index].cardValue;
+      const triggerRow = indexToRow(gs.pyramid, index);
+      const totalRows = getTotalRows(gs.pyramid);
+      const points = totalRows - triggerRow + 1;
+      gs.currentTrigger = triggerCard;
+      gs.currentRow = triggerRow;
+      gs.currentPoints = points;
+      gs.giversDone = [];
+      gs.requiredGivers = [];
+      t.update(roomRef,{ gameState: gs });
+    }
+  });
+  if(triggerCard){
+    await awardRowPointsOnReveal(triggerCard);
+    await computeRequiredGivers(triggerCard);
+  }
+}
+
+async function revealNextPyramidCardByHost(){
+  const roomRef = db.collection('rooms').doc(currentRoomCode);
+  let triggerCard=null;
+  await db.runTransaction(async (t)=>{
+    const doc = await t.get(roomRef);
+    const gs = doc.data().gameState;
+    const next = gs.pyramid.map(c => c.isRevealed).lastIndexOf(false);
+    if(next!==-1){
+      gs.pyramid[next].isRevealed = true;
+      triggerCard = gs.pyramid[next].cardValue;
+      const triggerRow = indexToRow(gs.pyramid, next);
+      const totalRows = getTotalRows(gs.pyramid);
+      const points = totalRows - triggerRow + 1;
+      gs.currentTrigger = triggerCard;
+      gs.currentRow = triggerRow;
+      gs.currentPoints = points;
+      gs.giversDone = [];
+      gs.requiredGivers = [];
+      t.update(roomRef,{ gameState: gs });
+    }
+  });
+  if(triggerCard){
+    await awardRowPointsOnReveal(triggerCard);
+    await computeRequiredGivers(triggerCard);
+  }
+}
+
+async function revealNextDiscardCard(){
+  if(!isHost) return;
+  const roomRef = db.collection('rooms').doc(currentRoomCode);
+  const playersRef = roomRef.collection('players');
+  try{
+    const playersSnapshot = await playersRef.get();
+    const allConfirmed = playersSnapshot.docs.every(d=>d.data().actionConfirmed);
+    const roomDoc = await roomRef.get();
+    const gs = roomDoc.data().gameState||{};
+    const requiredGivers = gs.requiredGivers||[];
+    const giversDone = gs.giversDone||[];
+    const allGiversDone = requiredGivers.every(n=>giversDone.includes(n));
+    if(!allConfirmed || !allGiversDone){ alert('Warten: Nicht alle Bestätigungen/Abgaben sind erledigt.'); return; }
+
+    let triggerCard=null;
+    await db.runTransaction(async (t)=>{
+      const doc = await t.get(roomRef);
+      const g = doc.data().gameState;
+      if(g.discardPile.length===0) return;
+      const cardToReveal = g.discardPile.shift();
+      g.revealedDiscard.push(cardToReveal);
+      triggerCard = cardToReveal;
+      g.currentTrigger = triggerCard;
+      g.currentRow = null;
+      g.currentPoints = null;
+      g.giversDone = [];
+      g.requiredGivers = [];
+      t.update(roomRef,{ gameState: g });
+    });
+    if(triggerCard){
+      await computeRequiredGivers(triggerCard);
+    }
+  }catch(e){ console.error(e); alert('Reststapel-Karte konnte nicht aufgedeckt werden: '+e.message); }
+}
+
+/* ================== ACTIONS ================== */
+async function giveCard(){
+    const assignmentArea = document.getElementById('card-assignment-area');
+    const selects = assignmentArea.querySelectorAll('select');
+
+    const assignments = {};
+    const allCardsToGive = [];
+    selects.forEach(select => {
+        const card = select.dataset.card;
+        const target = select.value;
+        if (target) {
+            if (!assignments[target]) assignments[target] = [];
+            assignments[target].push(card);
+            allCardsToGive.push(card);
+        }
+    });
+
+    if (allCardsToGive.length === 0) {
+        alert('Bitte weise mindestens eine Karte einem Spieler zu.');
+        return;
+    }
+
+    try {
+        await db.runTransaction(async (t) => {
+            const roomRef = db.collection('rooms').doc(currentRoomCode);
+            const sourceRef = roomRef.collection('players').doc(myNickname);
+
+            const roomDoc = await t.get(roomRef);
+            const sourceDoc = await t.get(sourceRef);
+
+            const targetRefs = {};
+            const targetDocs = {};
+            for (const targetPlayer in assignments) {
+                targetRefs[targetPlayer] = roomRef.collection('players').doc(targetPlayer);
+                targetDocs[targetPlayer] = await t.get(targetRefs[targetPlayer]);
+            }
+
+            const gs = roomDoc.data().gameState || {};
+            const requiredGivers = gs.requiredGivers || [];
+            const giversDone = gs.giversDone || [];
+            if (requiredGivers.includes(myNickname) && giversDone.includes(myNickname)) throw new Error('Du hast für diesen Buchstaben bereits abgegeben.');
+
+            const sourceHand = sourceDoc.data().hand;
+            for (const card of allCardsToGive) {
+                if (!sourceHand.includes(card)) throw new Error(`Karte ${card} ist nicht mehr in deiner Hand.`);
+            }
+
+            const suit = allCardsToGive[0].charAt(0);
+            const allCardsOfSuitInHand = sourceHand.filter(c => c.charAt(0) === suit);
+            const isGivingAllOfSuit = allCardsOfSuitInHand.length === allCardsToGive.length;
+
+            const finalSourceHand = sourceHand.filter(c => !allCardsToGive.includes(c));
+            t.update(sourceRef, { hand: finalSourceHand });
+
+            for (const targetPlayer in assignments) {
+                const cardsForThisPlayer = assignments[targetPlayer];
+                const targetData = targetDocs[targetPlayer].data();
+                const targetReceived = targetData.receivedCards || [];
+
+                const rowPts = Number(gs.currentPoints) || 0;
+                let pointsToAdd = rowPts * cardsForThisPlayer.length;
+                if (isGivingAllOfSuit && pointsToAdd > 0) {
+                    pointsToAdd *= 2;
+                }
+                const newScore = (Number(targetData.score) || 0) + pointsToAdd;
+
+                t.update(targetRefs[targetPlayer], {
+                    receivedCards: [...targetReceived, ...cardsForThisPlayer],
+                    actionConfirmed: false,
+                    score: newScore
+                });
+            }
+
+            const newGiversDone = giversDone.includes(myNickname) ? giversDone : [...giversDone, myNickname];
+            t.update(roomRef, { 'gameState.giversDone': newGiversDone });
+        });
+
+        document.getElementById('give-card-controls').style.display = 'none';
+        await checkTriggerResolved();
+    } catch (e) {
+        console.error(e);
+        alert('Karten konnten nicht abgegeben werden: ' + e.message);
+    }
+}
+
+async function confirmReceivedCard(){
+  const playerRef = db.collection('rooms').doc(currentRoomCode).collection('players').doc(myNickname);
+  try{
+    await playerRef.update({ actionConfirmed:true });
+    document.getElementById('card-received-overlay').style.display='none';
+    await checkTriggerResolved();
+  }catch(e){ console.error(e); alert('Bestätigung fehlgeschlagen: '+e.message); }
+}
+
+/* ================== LISTENERS / UI ================== */
+function setupLobbyListeners(roomCode){
+  let unsubscribePlayers = db.collection('rooms').doc(roomCode).collection('players').onSnapshot(snap=>{
+    currentPlayersInGame = snap.docs.map(doc=>doc.id);
+    updatePlayerListUI(currentPlayersInGame);
+    if(isHost) document.getElementById('start-game-button').disabled = currentPlayersInGame.length<2;
+  });
+  unsubscribeRoom = db.collection('rooms').doc(roomCode).onSnapshot(doc=>{
+    const data = doc.data(); if(!data) return;
+    if(data.status==='in-game'){
+      if(unsubscribePlayers) unsubscribePlayers(); if(unsubscribeRoom) unsubscribeRoom();
+      document.getElementById('game-player-list').innerHTML = document.getElementById('player-list').innerHTML;
+      showScreen('game-screen');
+      setupGameListeners(roomCode);
+      updateGamePlayerScores(roomCode);
+      return;
+    }
+    if(isHost){
+      const area = document.getElementById('display-code-area');
+      if(data.externalDisplayEnabled && data.displayCode){
+        document.getElementById('display-code-display').innerText = data.displayCode; area.style.display='block';
+      }else area.style.display='none';
+    }else{
+      document.getElementById('player-settings-display').innerHTML = `<p><strong>Einstellungen:</strong> ${data.settings.cardCount} Karten, ${data.settings.rowCount} Reihen. Display: ${data.externalDisplayEnabled?'Ja':'Nein'}</p>`;
+    }
+  });
+}
+
+function setupGameListeners(roomCode){
+  if(isHost) document.getElementById('host-game-controls').style.display='block';
+  unsubscribeMyHand = db.collection('rooms').doc(roomCode).collection('players').doc(myNickname).onSnapshot(doc=>{
+    if(doc.exists){
+      const p = doc.data();
+      displayCards(p.hand||[],'hand-cards-display');
+      const receivedArea = document.getElementById('received-cards');
+      if(p.receivedCards && p.receivedCards.length>0){
+        displayCards(p.receivedCards,'received-cards-display');
+        receivedArea.style.display='block';
+        if(!p.actionConfirmed){
+          document.getElementById('received-card-value').innerText = p.receivedCards.slice(-1)[0];
+          document.getElementById('card-received-overlay').style.display='flex';
+        }
+      }else receivedArea.style.display='none';
+    }
+  });
+  unsubscribeRoom = db.collection('rooms').doc(roomCode).onSnapshot(async doc=>{
+    const data = doc.data(); if(!data || !data.gameState) return;
+    const { pyramid, revealedDiscard, discardPile, currentTrigger, currentPoints, requiredGivers=[], giversDone=[] } = data.gameState;
+
+    displayPyramid(pyramid,'pyramid-area-player',false);
+    displayCards(revealedDiscard,'public-revealed-cards');
+
+    const triggerSuit = currentTrigger ? String(currentTrigger).charAt(0).toUpperCase() : null;
+    document.getElementById('active-trigger-player').innerText = triggerSuit ? `${triggerSuit} (${currentPoints || '-'} Pkt.)` : '–';
+
+    if(isHost){
+      const playersSnapshot = await db.collection('rooms').doc(roomCode).collection('players').get();
+      const allConfirmed = playersSnapshot.docs.every(d=>d.data().actionConfirmed);
+      const allGiversDone = requiredGivers.every(n=>giversDone.includes(n));
+      document.getElementById('reveal-pyramid-card-button').style.display = data.externalDisplayEnabled ? 'none' : 'block';
+      document.getElementById('reveal-pyramid-card-button').disabled = pyramid.every(c=>c.isRevealed) || !allConfirmed || !allGiversDone;
+      document.getElementById('reveal-discard-card-button').disabled = discardPile.length===0 || !allConfirmed || !allGiversDone;
+      document.getElementById('host-wait-hint').style.display = (allConfirmed && allGiversDone)?'none':'block';
+    }
+
+    const giveControls = document.getElementById('give-card-controls');
+    if(triggerSuit){
+      const myHand = Array.from(document.querySelectorAll('#hand-cards-display .card')).map(c=>c.dataset.value);
+      const playableCards = myHand.filter(c=>c.charAt(0)===currentTrigger.charAt(0));
+      const mustGive = requiredGivers.includes(myNickname) && !giversDone.includes(myNickname);
+      if(playableCards.length>0 && mustGive){
+        const assignmentArea = document.getElementById('card-assignment-area');
+        assignmentArea.innerHTML = '';
+        const otherPlayers = currentPlayersInGame.filter(p => p !== myNickname);
+        const playerOptions = '<option value="">- Spieler wählen -</option>' + otherPlayers.map(p => `<option value="${p}">${p}</option>`).join('');
+        playableCards.forEach(card => {
+            const row = document.createElement('div');
+            row.className = 'card-assignment-row';
+            const cardElHTML = createCardElement(card).outerHTML;
+            row.innerHTML = `${cardElHTML}<select data-card="${card}">${playerOptions}</select>`;
+            assignmentArea.appendChild(row);
+        });
+        giveControls.style.display='block';
+      }else giveControls.style.display='none';
+
+      const receivedCards = Array.from(document.querySelectorAll('#received-cards-display .card')).map(c=>c.dataset.value);
+      if(receivedCards.some(c=>c.charAt(0)===currentTrigger.charAt(0))){
+        const receivedArea = document.getElementById('received-cards');
+        receivedArea.classList.remove('highlight-animation'); void receivedArea.offsetWidth; receivedArea.classList.add('highlight-animation');
+      }
+    }else giveControls.style.display='none';
+  });
+}
+
+function setupDisplayListeners(roomCode){
+  unsubscribeRoom = db.collection('rooms').doc(roomCode).onSnapshot(async doc=>{
+    const data = doc.data();
+    if(data && data.gameState){
+      const { pyramid, revealedDiscard, currentTrigger, currentPoints, requiredGivers=[], giversDone=[] } = data.gameState;
+      displayPyramid(pyramid,'pyramid-area-display',true);
+      displayCards(revealedDiscard,'display-revealed-cards');
+
+      const triggerSuit = currentTrigger ? String(currentTrigger).charAt(0).toUpperCase() : null;
+      document.getElementById('active-trigger-display').innerText = triggerSuit ? `${triggerSuit} (${currentPoints || '-'} Pkt.)` : '–';
+
+      const playersSnapshot = await db.collection('rooms').doc(roomCode).collection('players').get();
+      const allConfirmed = playersSnapshot.docs.every(d=>d.data().actionConfirmed);
+      const allGiversDone = requiredGivers.every(n=>giversDone.includes(n));
+      document.querySelectorAll('#pyramid-area-display .card.interactive').forEach(cardEl=>{
+        const ok = allConfirmed && allGiversDone;
+        cardEl.style.pointerEvents = ok ? 'auto' : 'none';
+        cardEl.style.opacity = ok ? '1' : '0.5';
+      });
+    }
+  });
+}
+
+function updatePlayerListUI(players){
+  const list = document.getElementById('player-list'); list.innerHTML='';
+  players.forEach(name=>{
+    const li = document.createElement('li');
+    li.textContent = name + (name===myNickname?' (Du)':'');
+    if(name===myNickname) li.style.fontWeight='bold';
+    list.appendChild(li);
+  });
+  document.getElementById('player-count').innerText = players.length;
+}
+
+function updateGamePlayerScores(roomCode){
+  const list = document.getElementById('game-player-list');
+  db.collection('rooms').doc(roomCode).collection('players').onSnapshot(snap=>{
+    const arr = snap.docs.map(d=>({ name:d.id, score:Number(d.data().score)||0 }));
+    list.innerHTML = arr
+      .sort((a,b)=> b.score-a.score || a.name.localeCompare(b.name))
+      .map(p=>`<li>${p.name}${p.name===myNickname?' (Du)':''} — Punkte: <strong>${p.score}</strong></li>`)
+      .join('');
+  });
+}
+
+function displayCards(cards,id){
+  const el=document.getElementById(id); el.innerHTML='';
+  if(!cards||cards.length===0){ el.innerText='Keine'; return; }
+  cards.sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  cards.forEach(card=>{
+      el.appendChild(createCardElement(card));
+  });
+}
+
+function displayPyramid(pyramidData, containerId, isInteractive){
+  const container = document.getElementById(containerId); container.innerHTML='';
+  if(!pyramidData || pyramidData.length===0) return;
+  const totalRows = getTotalRows(pyramidData);
+  let pos=0;
+  for(let row=1; row<=totalRows; row++){
+    const rowEl=document.createElement('div'); rowEl.className='pyramid-row';
+    for(let i=0;i<row;i++){
+      const cardData = pyramidData[pos];
+      const isRevealed = cardData.isRevealed;
+      const cardEl = createCardElement(cardData.cardValue, !isRevealed);
+      cardEl.dataset.index = pos;
+
+      if(!isRevealed && isInteractive){
+          cardEl.classList.add('interactive');
+          cardEl.onclick = () => revealPyramidCard(cardEl.dataset.index);
+      }
+      rowEl.appendChild(cardEl);
+      pos++;
+    }
+    container.appendChild(rowEl);
+  }
+}
+
+function indexToRow(pyramidData, idx){
+  let row=1, used=0;
+  while(true){
+    if(idx < used+row) return row;
+    used += row; row++;
+  }
+}
+
+async function computeRequiredGivers(triggerCard){
+  const roomRef = db.collection('rooms').doc(currentRoomCode);
+  const suit = String(triggerCard).charAt(0);
+  try{
+    const playersSnapshot = await roomRef.collection('players').get();
+    const required = playersSnapshot.docs
+      .filter(d=>Array.isArray(d.data().hand) && d.data().hand.some(c=>String(c).charAt(0)===suit))
+      .map(d=>d.id);
+    await roomRef.update({ 'gameState.requiredGivers': required, 'gameState.giversDone': [] });
+  }catch(e){ console.error('computeRequiredGivers error', e); }
+}
+
+async function awardRowPointsOnReveal(triggerCard){
+  const roomRef = db.collection('rooms').doc(currentRoomCode);
+  const suit = String(triggerCard).charAt(0);
+  const roomDoc = await roomRef.get();
+  const gs = roomDoc.data().gameState||{};
+  const pts = Number(gs.currentPoints)||0;
+  if(!pts) return;
+  const playersSnapshot = await roomRef.collection('players').get();
+  const updates = [];
+  for(const d of playersSnapshot.docs){
+    const data = d.data();
+    const received = Array.isArray(data.receivedCards) ? data.receivedCards : [];
+    const matches = received.filter(c=>String(c).charAt(0)===suit).length;
+    if(matches>0){
+      const newScore = (Number(data.score)||0) + matches*pts;
+      updates.push(roomRef.collection('players').doc(d.id).update({ score: newScore }));
+    }
+  }
+  await Promise.all(updates);
+}
+
+async function checkTriggerResolved(){
+  const roomRef = db.collection('rooms').doc(currentRoomCode);
+  try{
+    const roomDoc = await roomRef.get();
+    const gs = roomDoc.data().gameState||{};
+    const required = gs.requiredGivers||[];
+    const done = gs.giversDone||[];
+    const playersSnapshot = await roomRef.collection('players').get();
+    const allConfirmed = playersSnapshot.docs.every(d=>d.data().actionConfirmed);
+    const allGiversDone = required.every(n=>done.includes(n));
+    if(gs.currentTrigger && allConfirmed && allGiversDone){
+      await roomRef.update({
+        'gameState.currentTrigger': null,
+        'gameState.currentRow': null,
+        'gameState.currentPoints': null,
+        'gameState.requiredGivers': [],
+        'gameState.giversDone': []
+      });
+    }
+  }catch(e){ console.error('checkTriggerResolved error', e); }
+}
+</script>
 </body>
 </html>
