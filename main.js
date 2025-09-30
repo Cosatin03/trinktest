@@ -37,20 +37,66 @@ function getNickname() {
     return nickname;
 }
 
+// --- ZURÜCK-BUTTON LOGIK ---
+async function goBackToMain() {
+    // Wenn ein Spiel erstellt/beigetreten wurde, räume Firebase auf
+    if (currentRoomCode) {
+        const gameRef = ref(db, `games/${currentRoomCode}`);
+        if (localPlayer.isHost) {
+            // Host geht zurück, lösche das gesamte Spiel
+            await remove(gameRef);
+        } else if (localPlayer.nickname) {
+            // Joiner geht zurück, entferne nur diesen Spieler
+            const playerRef = ref(db, `games/${currentRoomCode}/players/${localPlayer.nickname}`);
+            await remove(playerRef);
+        }
+    }
+    // Setze den lokalen Zustand zurück
+    localPlayer = { nickname: null, isHost: false };
+    currentRoomCode = null;
+    if (gameUnsubscribe) {
+        gameUnsubscribe(); // Beende das Lauschen auf Spiel-Updates
+        gameUnsubscribe = null;
+    }
+    // Zeige das Hauptmenü
+    showView('main-menu-view');
+}
+
+
 // --- Event Listener Initialisierung ---
-hostBtn.addEventListener('click', hostNewGame);
-joinBtn.addEventListener('click', () => { if (getNickname()) showView('join-lobby-view'); });
+// Hauptmenü-Buttons
+hostBtn.addEventListener('click', () => {
+    const nickname = getNickname();
+    if (nickname) {
+        hostNewGame(nickname);
+    }
+});
+joinBtn.addEventListener('click', () => {
+    const nickname = getNickname();
+    if (nickname) {
+        localPlayer.nickname = nickname; // Nickname speichern, bevor die Ansicht gewechselt wird
+        showView('join-lobby-view');
+    }
+});
 displayBtn.addEventListener('click', () => showView('display-join-view'));
+
+// Lobby-Buttons
 joinGameBtn.addEventListener('click', joinGame);
 joinDisplayBtn.addEventListener('click', joinAsDisplay);
 startGameBtn.addEventListener('click', startGame);
 nextTurnBtn.addEventListener('click', revealNextCard);
+
+// Zurück-Buttons
+document.querySelectorAll('.back-btn').forEach(btn => {
+    btn.addEventListener('click', goBackToMain);
+});
+
+// Host-Einstellungen
 externalDisplayCheckbox.addEventListener('change', async () => {
     if (currentRoomCode) {
         await update(ref(db, `games/${currentRoomCode}/settings`), { useExternalDisplay: externalDisplayCheckbox.checked });
     }
 });
-// Event Listener für Host-Einstellungen
 document.getElementById('deck-small-btn').addEventListener('click', () => updateSetting('deck', 'small'));
 document.getElementById('deck-large-btn').addEventListener('click', () => updateSetting('deck', 'large'));
 document.getElementById('pyramid-rows-input').addEventListener('change', (e) => updateSetting('rows', parseInt(e.target.value)));
@@ -64,12 +110,9 @@ async function updateSetting(key, value) {
     await update(ref(db, `games/${currentRoomCode}/settings`), { [key]: value });
 }
 
-
 // --- SPIEL-SETUP FUNKTIONEN ---
 
-async function hostNewGame() {
-    const nickname = getNickname();
-    if (!nickname) return;
+async function hostNewGame(nickname) {
     localPlayer = { nickname, isHost: true };
     currentRoomCode = Math.floor(1000 + Math.random() * 9000).toString();
     
@@ -89,15 +132,14 @@ async function hostNewGame() {
 
     const gameRef = ref(db, `games/${currentRoomCode}`);
     await set(gameRef, gameData);
-    onDisconnect(gameRef).remove(); // Spiel löschen, wenn Host die Verbindung trennt
+    onDisconnect(gameRef).remove();
     listenToGameUpdates(currentRoomCode);
     showView('host-lobby-view');
 }
 
 async function joinGame() {
-    const nickname = getNickname();
     const roomCode = roomCodeInput.value.trim();
-    if (!nickname || !roomCode) return;
+    if (!localPlayer.nickname || !roomCode) return;
 
     const gameRef = ref(db, `games/${roomCode}`);
     const snapshot = await get(gameRef);
@@ -107,16 +149,15 @@ async function joinGame() {
         if (Object.keys(gameData.players).length >= 7) {
             alert("Dieses Spiel ist bereits voll."); return;
         }
-        if (gameData.players[nickname]) {
+        if (gameData.players[localPlayer.nickname]) {
             alert("Dieser Nickname ist bereits vergeben."); return;
         }
         if (gameData.state !== 'lobby') {
             alert("Dieses Spiel hat bereits begonnen."); return;
         }
         
-        localPlayer = { nickname, isHost: false };
         currentRoomCode = roomCode;
-        const playerRef = ref(db, `games/${roomCode}/players/${nickname}`);
+        const playerRef = ref(db, `games/${roomCode}/players/${localPlayer.nickname}`);
         await set(playerRef, { sips: 0, hand: [], receivedCards: [] });
         onDisconnect(playerRef).remove();
         listenToGameUpdates(roomCode);
@@ -125,6 +166,8 @@ async function joinGame() {
         alert('Spiel mit diesem Code nicht gefunden.');
     }
 }
+// (Der Rest der main.js Datei von der vorherigen Antwort kann hier eingefügt werden, da er unverändert bleibt)
+// ... (Fügen Sie hier den Rest der main.js von der vorherigen Antwort ein, ab der Funktion "joinAsDisplay")
 
 async function joinAsDisplay() {
     const roomCode = displayRoomCodeInput.value.trim();
@@ -149,8 +192,12 @@ function listenToGameUpdates(roomCode) {
     const gameRef = ref(db, `games/${roomCode}`);
     gameUnsubscribe = onValue(gameRef, (snapshot) => {
         if (!snapshot.exists()) {
-            alert("Das Spiel wurde vom Host beendet oder die Verbindung wurde getrennt.");
-            window.location.reload();
+            // Wenn das Spiel nicht mehr existiert (z.B. weil der Host auf "Zurück" geklickt hat),
+            // gehe zum Hauptmenü zurück, aber nur, wenn man nicht schon dort ist.
+            if (document.getElementById('main-menu-view').classList.contains('active')) return;
+            
+            alert("Das Spiel wurde vom Host beendet.");
+            goBackToMain(); // Nutze die Aufräumfunktion
             return;
         }
         const gameData = snapshot.val();
@@ -164,11 +211,10 @@ function renderUI(gameData) {
     if (gameData.state === 'lobby') {
         renderLobby(gameData);
     } else if (gameData.state === 'playing' || gameData.state === 'finished') {
-        // Ist der aktuelle Client ein Spieler?
         if (gameData.players[localPlayer.nickname]) {
             showView('player-game-view');
             renderPlayerView(gameData);
-        } else { // Oder der Display?
+        } else {
             showView('display-game-view');
             renderDisplayView(gameData);
         }
@@ -180,7 +226,9 @@ function renderLobby(gameData) {
     const playerCount = players.length;
 
     if (localPlayer.isHost) {
-        showView('host-lobby-view');
+        if (!document.getElementById('host-lobby-view').classList.contains('active')) {
+            showView('host-lobby-view');
+        }
         document.getElementById('room-code-display').textContent = currentRoomCode;
         document.getElementById('player-list-host').innerHTML = players.map(p => `<li>${p} ${p === gameData.host ? '👑' : ''}</li>`).join('');
         document.getElementById('player-count').textContent = playerCount;
@@ -192,8 +240,10 @@ function renderLobby(gameData) {
         const canStart = playerCount >= 2 && (!useDisplay || gameData.displayJoined);
         startGameBtn.disabled = !canStart;
         startGameBtn.textContent = canStart ? 'Spiel starten' : (playerCount < 2 ? 'Warte auf Spieler...' : 'Warte auf Display...');
-    } else {
-        showView('join-lobby-view');
+    } else if (localPlayer.nickname) { // Nur wenn man ein Joiner ist
+        if (!document.getElementById('join-lobby-view').classList.contains('active')) {
+            showView('join-lobby-view');
+        }
         document.getElementById('player-list-joiner').innerHTML = players.map(p => `<li>${p} ${p === gameData.host ? '👑' : ''}</li>`).join('');
     }
 }
@@ -202,7 +252,6 @@ function renderPlayerView(gameData) {
     const myData = gameData.players[localPlayer.nickname];
     const { turn, pyramid, actionLog, state } = gameData;
 
-    // Handkarten
     const handContainer = document.getElementById('player-hand-container');
     handContainer.innerHTML = '';
     myData.hand.forEach(card => {
@@ -217,7 +266,6 @@ function renderPlayerView(gameData) {
         handContainer.appendChild(cardEl);
     });
 
-    // Erhaltene Karten
     const receivedContainer = document.getElementById('received-cards-container');
     receivedContainer.innerHTML = '';
     (myData.receivedCards || []).forEach(card => receivedContainer.appendChild(createCardElement(card)));
@@ -237,7 +285,6 @@ function renderPlayerView(gameData) {
 function renderDisplayView(gameData) {
     const { players, pyramid, actionLog, state } = gameData;
 
-    // Spieler
     const playersContainer = document.getElementById('display-players-container');
     playersContainer.innerHTML = '';
     Object.entries(players).forEach(([name, data]) => {
@@ -247,7 +294,6 @@ function renderDisplayView(gameData) {
         playersContainer.appendChild(playerEl);
     });
 
-    // Pyramide
     const pyramidContainer = document.getElementById('pyramid-container');
     pyramidContainer.innerHTML = '';
     pyramid.forEach(row => {
@@ -290,7 +336,6 @@ async function startGame() {
     const { settings, players } = gameData;
     const playerNames = Object.keys(players);
 
-    // Deck erstellen und mischen
     const suits = ['♥', '♦', '♣', '♠'];
     const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
     let deck = [];
@@ -300,9 +345,8 @@ async function startGame() {
         }
     }
     if (settings.deck === 'small') deck = deck.filter(c => !['2','3','4','5','6'].includes(c.value));
-    deck.sort(() => Math.random() - 0.5); // Mischen
+    deck.sort(() => Math.random() - 0.5);
 
-    // Karten austeilen
     const updatedPlayers = { ...players };
     for (const name of playerNames) {
         updatedPlayers[name].hand = deck.splice(0, 4);
@@ -310,7 +354,6 @@ async function startGame() {
         updatedPlayers[name].sips = 0;
     }
 
-    // Pyramide erstellen
     const pyramid = [];
     for (let i = 0; i < settings.rows; i++) {
         const row = [];
@@ -345,7 +388,6 @@ async function revealNextCard() {
     
     await update(gameRef, updates);
 
-    // Prüfen, ob jemand die Karte hat. Wenn nicht, nach kurzer Zeit weitermachen.
     const playersWithCard = Object.values(gameData.players).some(p => p.hand.some(c => c.id === revealedCard.id));
     if (!playersWithCard) {
         setTimeout(goToNextRevealPhase, 3000);
@@ -415,4 +457,3 @@ async function goToNextRevealPhase() {
 
 // --- Initialisierung ---
 showView('main-menu-view');
-
