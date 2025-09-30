@@ -1,5 +1,5 @@
 import { db } from './firebase-config.js';
-import { ref, set, onValue, get, update, remove, onDisconnect, Unsubscribe } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
+import { ref, set, onValue, get, update, remove, onDisconnect } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-database.js";
 
 // Wir warten, bis das gesamte HTML geladen ist, bevor wir unser Skript ausführen.
 // Das verhindert Fehler, bei denen auf nicht existierende Elemente zugegriffen wird.
@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Lokaler Spielzustand ---
     let localPlayer = { nickname: null, isHost: false };
     let currentRoomCode = null;
-    /** @type {Unsubscribe | null} */
+    /** @type {(() => void) | null} */
     let gameUnsubscribe = null;
 
     // --- UI-Navigation ---
@@ -149,7 +149,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    // (Der Rest der Logik bleibt identisch, da sie bereits korrekt war. Ich füge sie hier zur Vollständigkeit ein.)
     async function joinAsDisplay() {
         const roomCode = displayRoomCodeInput.value.trim();
         if (!roomCode) return;
