@@ -398,7 +398,8 @@ async function revealPyramidCard(index){
       gs.pyramid[index].isRevealed = true;
       triggerCard = gs.pyramid[index].cardValue;
       const triggerRow = indexToRow(gs.pyramid, index);
-      const points = triggerRow; // Points are now 1 for top row, 2 for next, etc.
+      const totalRows = getTotalRows(gs.pyramid);
+      const points = totalRows - triggerRow + 1; // Inverted points logic
       gs.currentTrigger = triggerCard;
       gs.currentRow = triggerRow;
       gs.currentPoints = points;
@@ -424,7 +425,8 @@ async function revealNextPyramidCardByHost(){
       gs.pyramid[next].isRevealed = true;
       triggerCard = gs.pyramid[next].cardValue;
       const triggerRow = indexToRow(gs.pyramid, next);
-      const points = triggerRow;
+      const totalRows = getTotalRows(gs.pyramid);
+      const points = totalRows - triggerRow + 1; // Inverted points logic
       gs.currentTrigger = triggerCard;
       gs.currentRow = triggerRow;
       gs.currentPoints = points;
