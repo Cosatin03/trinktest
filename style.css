@@ -34,6 +34,12 @@ body {
     justify-content: center;
     align-items: center;
     padding: 20px;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 .view.active { display: flex; }
@@ -49,7 +55,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 15px;
-    position: relative; /* Wichtig für den Zurück-Button */
+    position: relative;
 }
 
 .back-btn {
@@ -64,7 +70,7 @@ body {
 .back-btn:hover { background-color: #5a6268; }
 
 h1 { font-size: 2.5rem; margin-bottom: 10px; }
-h2 { margin-top: 20px; } /* Platz für den Zurück-Button */
+h2 { margin-top: 20px; }
 
 input[type="text"], input[type="number"] {
     width: 100%;
