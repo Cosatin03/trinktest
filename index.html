@@ -43,6 +43,56 @@
         .overlay-content h2{color:#28a745}.overlay-content button{margin-top:20px;width:auto;padding:10px 30px}
         .trigger-badge{display:inline-block;padding:6px 10px;border-radius:999px;background:#e7f1ff;color:#0d6efd;font-weight:700;margin-left:6px}
         .muted{color:#6c757d;font-size:14px;margin-top:10px}
+      /* ---- Skat-UI für Karten (nur Rendering, keine Logik) ---- */
+.card {
+  position: relative;
+  width: 60px;
+  height: 90px;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 2px 4px rgba(0,0,0,.15);
+  overflow: hidden;
+}
+
+.card.back {
+  background: repeating-linear-gradient(45deg,#e6f0ff,#e6f0ff 6px,#cfe0ff 6px,#cfe0ff 12px);
+  border: 1px solid #b5ccff;
+}
+
+.card-face {
+  position: absolute;
+  inset: 0;
+  padding: 6px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+}
+
+.card--red  { color: #d12b2b; }
+.card--black{ color: #111; }
+
+.card-corner {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  font-weight: 700;
+}
+.card-corner.tl { top: 4px; left: 4px; }
+.card-corner.br { bottom: 4px; right: 4px; transform: rotate(180deg); }
+
+.card-rank { font-size: 14px; }
+.card-suit { font-size: 12px; }
+
+.card-center-suit {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%,-50%);
+  font-size: 36px;
+  opacity: .9;
+}
+
     </style>
 </head>
 <body>
@@ -69,8 +119,8 @@
             <div class="settings-form">
                 <label>Kartenanzahl:
                     <select id="card-count-select" onchange="updateSettings()">
-                        <option value="32">32 (Skat)</option>
-                        <option value="52">52 (Poker)</option>
+                        <option value="32">32</option>
+                        <option value="52">52</option>
                     </select>
                 </label>
                 <label>Anzahl Reihen:
@@ -104,7 +154,7 @@
         <div id="public-info" class="game-section">
             <h3>Pyramide</h3><div id="pyramid-area-player"></div>
             <h3>Aufgedeckte Restkarten</h3><div id="public-revealed-cards">Keine</div>
-            <p class="muted">Aktiver Buchstabe:<span id="active-trigger-player" class="trigger-badge">–</span></p>
+            <p class="muted">Aktiver Wert:<span id="active-trigger-player" class="trigger-badge">–</span></p>
         </div>
         <div id="my-hand" class="game-section">
             <h3>Deine Handkarten</h3><div id="hand-cards-display"></div>
@@ -113,7 +163,7 @@
             <h3>Erhaltene Karten</h3><div id="received-cards-display"></div>
         </div>
         <div id="give-card-controls" style="display:none">
-            <p><strong>Aktion!</strong> Weise jede deiner Karten mit dem aktiven Buchstaben einem Spieler zu. Gibst du alle ab, zählen die Punkte doppelt!</p>
+            <p><strong>Aktion!</strong> Weise jede deiner Karten mit dem aktiven Wert einem Spieler zu.</p>
             <div id="card-assignment-area"></div>
             <button onclick="giveCard()">Ausgewählte Karten abgeben</button>
             <div class="muted">Weiter geht’s erst, wenn alle Pflicht-Geber abgegeben haben und alle Empfänger bestätigt haben.</div>
@@ -128,7 +178,7 @@
         <div id="display-content" class="game-section">
             <h3>Pyramide</h3><div id="pyramid-area-display"></div>
             <hr><h3>Aufgedeckte Restkarten</h3><div id="display-revealed-cards"></div>
-            <p class="muted">Aktiver Buchstabe:<span id="active-trigger-display" class="trigger-badge">–</span></p>
+            <p class="muted">Aktiver Wert:<span id="active-trigger-display" class="trigger-badge">–</span></p>
         </div>
     </div>
 </div>
@@ -137,7 +187,7 @@
 <div id="card-received-overlay" class="overlay" style="display:none">
     <div class="overlay-content">
         <h2>Karten erhalten!</h2>
-        <p>Du hast die Karte(n) <strong id="received-card-value"></strong> erhalten.</p>
+        <p>Du hast <strong id="received-card-value"></strong> erhalten.</p>
         <button onclick="confirmReceivedCard()">Bestätigen</button>
     </div>
 </div>
@@ -156,24 +206,34 @@ let currentPlayersInGame = [];
 let playerIsDisplay = false;
 
 const SVG_SPRITE_URL = 'https://upload.wikimedia.org/wikipedia/commons/c/c9/SVG-cards-1.3-French-style.svg';
-const SUIT_MAP = { 'a': 'C', 'b': 'S', 'c': 'H', 'd': 'D' }; // a=Kreuz, b=Pik, c=Herz, d=Karo
+const RANK_MAP = { 'a': 'A', 'b': 'K', 'c': 'Q', 'd': 'J', 'e': '10', 'f': '9', 'g': '8', 'h': '7', 'i': '6', 'j': '5', 'k': '4', 'l': '3', 'm': '2' };
+const SUIT_MAP_NUM = { '1': 'H', '2': 'D', '3': 'S', '4': 'C' }; // 1=Herz, 2=Karo, 3=Pik, 4=Kreuz
+const RANK_TEXT = { 'a': 'Ass', 'b': 'König', 'c': 'Dame', 'd': 'Bube', 'e': '10', 'f': '9', 'g': '8', 'h': '7', 'i': '6', 'j': '5', 'k': '4', 'l': '3', 'm': '2' };
+const SUIT_TEXT = { '1': 'Herz', '2': 'Karo', '3': 'Pik', '4': 'Kreuz' };
+function suitSymbolByNum(suitNum){
+  // 1=Herz ♥, 2=Karo ♦, 3=Pik ♠, 4=Kreuz ♣
+  switch(String(suitNum)){
+    case '1': return '♥';
+    case '2': return '♦';
+    case '3': return '♠';
+    case '4': return '♣';
+    default : return '?';
+  }
+}
+function suitColorClass(suitNum){
+  return (String(suitNum)==='1' || String(suitNum)==='2') ? 'card--red' : 'card--black';
+}
 
 /* ================== UTIL ================== */
 function showScreen(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
 function generateCode(len,isNumeric=false){ const c=isNumeric?'0123456789':'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; let r=''; for(let i=0;i<len;i++) r+=c.charAt(Math.floor(Math.random()*c.length)); return r; }
 
-function generateDeck(cardCount) {
-    const deck = [];
-    const suits = ['a', 'b', 'c', 'd'];
-    let ranks;
-    if (cardCount === 32) { // Skat Deck
-        ranks = ['7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
-    } else { // 52-card Poker Deck
-        ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
-    }
-    for (const suit of suits) {
-        for (const rank of ranks) {
-            deck.push(suit + rank);
+function generateAlphanumericDeck(cardCount){
+    const deck=[];
+    const ranks = (cardCount===32) ? 'abcdefgh' : 'abcdefghijklm';
+    for(const rank of ranks){
+        for(let suit=1; suit<=4; suit++) {
+            deck.push(rank + suit);
         }
     }
     return deck;
@@ -182,23 +242,55 @@ function generateDeck(cardCount) {
 function getTotalRows(pyramidData) { let r = 0, total = 0; while (total < pyramidData.length) { r++; total += r; } return r; }
 
 function getCardSvgId(cardValue) {
-    const suitChar = cardValue.charAt(0);
-    const rank = cardValue.substring(1);
-    const svgSuit = SUIT_MAP[suitChar];
-    if (!svgSuit || !rank) return 'FR-back-blue-2';
-    return `FR-${svgSuit}-${rank}`;
+    const rankChar = cardValue.charAt(0);
+    const suitNum = cardValue.substring(1);
+    const svgRank = RANK_MAP[rankChar];
+    const svgSuit = SUIT_MAP_NUM[suitNum];
+    if (!svgRank || !svgSuit) return 'FR-back-blue-2';
+    return `FR-${svgSuit}-${svgRank}`;
+}
+
+function cardValueToText(cardValue) {
+    const rankChar = cardValue.charAt(0);
+    const suitNum = cardValue.substring(1);
+    return `${SUIT_TEXT[suitNum]} ${RANK_TEXT[rankChar]}`;
 }
 
 function createCardElement(cardValue, isHidden = false) {
-    const cardEl = document.createElement('div');
-    cardEl.className = 'card';
-    if (cardValue) cardEl.dataset.value = cardValue;
+  const cardEl = document.createElement('div');
+  cardEl.className = 'card';
+  if (cardValue) cardEl.dataset.value = cardValue;
 
-    const svgId = isHidden ? 'FR-back-blue-2' : getCardSvgId(cardValue);
-    if (isHidden) cardEl.classList.add('hidden');
-    
-    cardEl.innerHTML = `<svg viewBox="0 0 170 245"><use xlink:href="${SVG_SPRITE_URL}#${svgId}"></use></svg>`;
+  if (isHidden) {
+    // verdeckte Rückseite (nur Optik)
+    cardEl.classList.add('back');
     return cardEl;
+  }
+
+  // --- Gesicht rendern: nutzt DEINE vorhandene Zuordnung unverändert! ---
+  const rankChar = String(cardValue||'').charAt(0);
+  const suitNum  = String(cardValue||'').substring(1);
+  const rankDisp = RANK_MAP[rankChar] || '?';   // z.B. 'A','K','Q','J','10','9',...
+  const suitSym  = suitSymbolByNum(suitNum);    // ♥ ♦ ♠ ♣
+  const colorCls = suitColorClass(suitNum);     // card--red / card--black
+
+  const face = document.createElement('div');
+  face.className = `card-face ${colorCls}`;
+  face.innerHTML = `
+    <div class="card-corner tl">
+      <div class="card-rank">${rankDisp}</div>
+      <div class="card-suit">${suitSym}</div>
+    </div>
+    <div class="card-corner br">
+      <div class="card-rank">${rankDisp}</div>
+      <div class="card-suit">${suitSym}</div>
+    </div>
+    <div class="card-center-suit">
+      ${/^(J|Q|K)$/.test(rankDisp) ? rankDisp : suitSym}
+    </div>
+  `;
+  cardEl.appendChild(face);
+  return cardEl;
 }
 
 
@@ -281,7 +373,7 @@ async function startGame(){
       const roomDoc = await t.get(roomRef);
       if(!roomDoc.exists || roomDoc.data().status!=='lobby') return;
       const {cardCount,rowCount} = roomDoc.data().settings;
-      let deck = generateDeck(cardCount);
+      let deck = generateAlphanumericDeck(cardCount);
       deck = deck.sort(()=>Math.random()-0.5);
       const pyramidCardCount = (rowCount*(rowCount+1))/2;
       if(pyramidCardCount>=deck.length) throw new Error(`Zu viele Reihen (${rowCount}) für Kartenanzahl (${cardCount}).`);
@@ -306,8 +398,7 @@ async function revealPyramidCard(index){
       gs.pyramid[index].isRevealed = true;
       triggerCard = gs.pyramid[index].cardValue;
       const triggerRow = indexToRow(gs.pyramid, index);
-      const totalRows = getTotalRows(gs.pyramid);
-      const points = totalRows - triggerRow + 1;
+      const points = triggerRow; // Points are now 1 for top row, 2 for next, etc.
       gs.currentTrigger = triggerCard;
       gs.currentRow = triggerRow;
       gs.currentPoints = points;
@@ -333,8 +424,7 @@ async function revealNextPyramidCardByHost(){
       gs.pyramid[next].isRevealed = true;
       triggerCard = gs.pyramid[next].cardValue;
       const triggerRow = indexToRow(gs.pyramid, next);
-      const totalRows = getTotalRows(gs.pyramid);
-      const points = totalRows - triggerRow + 1;
+      const points = triggerRow;
       gs.currentTrigger = triggerCard;
       gs.currentRow = triggerRow;
       gs.currentPoints = points;
@@ -431,10 +521,6 @@ async function giveCard(){
                 if (!sourceHand.includes(card)) throw new Error(`Karte ${card} ist nicht mehr in deiner Hand.`);
             }
 
-            const suit = allCardsToGive[0].charAt(0);
-            const allCardsOfSuitInHand = sourceHand.filter(c => c.charAt(0) === suit);
-            const isGivingAllOfSuit = allCardsOfSuitInHand.length === allCardsToGive.length;
-
             const finalSourceHand = sourceHand.filter(c => !allCardsToGive.includes(c));
             t.update(sourceRef, { hand: finalSourceHand });
 
@@ -444,10 +530,7 @@ async function giveCard(){
                 const targetReceived = targetData.receivedCards || [];
 
                 const rowPts = Number(gs.currentPoints) || 0;
-                let pointsToAdd = rowPts * cardsForThisPlayer.length;
-                if (isGivingAllOfSuit && pointsToAdd > 0) {
-                    pointsToAdd *= 2;
-                }
+                const pointsToAdd = rowPts * cardsForThisPlayer.length; // Simplified scoring
                 const newScore = (Number(targetData.score) || 0) + pointsToAdd;
 
                 t.update(targetRefs[targetPlayer], {
@@ -517,7 +600,8 @@ function setupGameListeners(roomCode){
         displayCards(p.receivedCards,'received-cards-display');
         receivedArea.style.display='block';
         if(!p.actionConfirmed){
-          document.getElementById('received-card-value').innerText = p.receivedCards.slice(-1)[0];
+          const lastCard = p.receivedCards.slice(-1)[0];
+          document.getElementById('received-card-value').innerText = cardValueToText(lastCard);
           document.getElementById('card-received-overlay').style.display='flex';
         }
       }else receivedArea.style.display='none';
@@ -530,8 +614,8 @@ function setupGameListeners(roomCode){
     displayPyramid(pyramid,'pyramid-area-player',false);
     displayCards(revealedDiscard,'public-revealed-cards');
 
-    const triggerSuit = currentTrigger ? String(currentTrigger).charAt(0).toUpperCase() : null;
-    document.getElementById('active-trigger-player').innerText = triggerSuit ? `${triggerSuit} (${currentPoints || '-'} Pkt.)` : '–';
+    const triggerRank = currentTrigger ? RANK_TEXT[currentTrigger.charAt(0)] : null;
+    document.getElementById('active-trigger-player').innerText = triggerRank ? `${triggerRank} (${currentPoints || '-'} Pkt.)` : '–';
 
     if(isHost){
       const playersSnapshot = await db.collection('rooms').doc(roomCode).collection('players').get();
@@ -544,7 +628,7 @@ function setupGameListeners(roomCode){
     }
 
     const giveControls = document.getElementById('give-card-controls');
-    if(triggerSuit){
+    if(triggerRank){
       const myHand = Array.from(document.querySelectorAll('#hand-cards-display .card')).map(c=>c.dataset.value);
       const playableCards = myHand.filter(c=>c.charAt(0)===currentTrigger.charAt(0));
       const mustGive = requiredGivers.includes(myNickname) && !giversDone.includes(myNickname);
@@ -580,8 +664,8 @@ function setupDisplayListeners(roomCode){
       displayPyramid(pyramid,'pyramid-area-display',true);
       displayCards(revealedDiscard,'display-revealed-cards');
 
-      const triggerSuit = currentTrigger ? String(currentTrigger).charAt(0).toUpperCase() : null;
-      document.getElementById('active-trigger-display').innerText = triggerSuit ? `${triggerSuit} (${currentPoints || '-'} Pkt.)` : '–';
+      const triggerRank = currentTrigger ? RANK_TEXT[currentTrigger.charAt(0)] : null;
+      document.getElementById('active-trigger-display').innerText = triggerRank ? `${triggerRank} (${currentPoints || '-'} Pkt.)` : '–';
 
       const playersSnapshot = await db.collection('rooms').doc(roomCode).collection('players').get();
       const allConfirmed = playersSnapshot.docs.every(d=>d.data().actionConfirmed);
@@ -660,11 +744,11 @@ function indexToRow(pyramidData, idx){
 
 async function computeRequiredGivers(triggerCard){
   const roomRef = db.collection('rooms').doc(currentRoomCode);
-  const suit = String(triggerCard).charAt(0);
+  const rank = String(triggerCard).charAt(0);
   try{
     const playersSnapshot = await roomRef.collection('players').get();
     const required = playersSnapshot.docs
-      .filter(d=>Array.isArray(d.data().hand) && d.data().hand.some(c=>String(c).charAt(0)===suit))
+      .filter(d=>Array.isArray(d.data().hand) && d.data().hand.some(c=>String(c).charAt(0)===rank))
       .map(d=>d.id);
     await roomRef.update({ 'gameState.requiredGivers': required, 'gameState.giversDone': [] });
   }catch(e){ console.error('computeRequiredGivers error', e); }
@@ -672,7 +756,7 @@ async function computeRequiredGivers(triggerCard){
 
 async function awardRowPointsOnReveal(triggerCard){
   const roomRef = db.collection('rooms').doc(currentRoomCode);
-  const suit = String(triggerCard).charAt(0);
+  const rank = String(triggerCard).charAt(0);
   const roomDoc = await roomRef.get();
   const gs = roomDoc.data().gameState||{};
   const pts = Number(gs.currentPoints)||0;
@@ -682,7 +766,7 @@ async function awardRowPointsOnReveal(triggerCard){
   for(const d of playersSnapshot.docs){
     const data = d.data();
     const received = Array.isArray(data.receivedCards) ? data.receivedCards : [];
-    const matches = received.filter(c=>String(c).charAt(0)===suit).length;
+    const matches = received.filter(c=>String(c).charAt(0)===rank).length;
     if(matches>0){
       const newScore = (Number(data.score)||0) + matches*pts;
       updates.push(roomRef.collection('players').doc(d.id).update({ score: newScore }));
