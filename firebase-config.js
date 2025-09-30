@@ -11,14 +11,14 @@ const firebaseConfig = {
   apiKey: "AIzaSyDLOV59kiFzp7QfgaZNMmJB8iD5DNHrh2o",
   authDomain: "bustrinker-3a47f.firebaseapp.com",
   projectId: "bustrinker-3a47f",
-  storageBucket: "bustrinker-3a47f.firebasestorage.app",
+  storageBucket: "bustrinker-3a47f.appspot.com", // ← übliches Standard-Bucket
   messagingSenderId: "1059965319189",
   appId: "1:1059965319189:web:2c475328a404fb6463f61c",
   measurementId: "G-V9B6MZ880T"
 };
+
 // Firebase initialisieren
 const app = initializeApp(firebaseConfig);
 
 // Die Datenbank-Instanz exportieren, damit sie in main.js verwendet werden kann
 export const db = getDatabase(app);
-
