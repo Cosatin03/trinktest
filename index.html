@@ -192,6 +192,7 @@
     </div>
 </div>
 
+
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 <script>
@@ -262,17 +263,15 @@ function createCardElement(cardValue, isHidden = false) {
   if (cardValue) cardEl.dataset.value = cardValue;
 
   if (isHidden) {
-    // verdeckte Rückseite (nur Optik)
     cardEl.classList.add('back');
     return cardEl;
   }
 
-  // --- Gesicht rendern: nutzt DEINE vorhandene Zuordnung unverändert! ---
   const rankChar = String(cardValue||'').charAt(0);
   const suitNum  = String(cardValue||'').substring(1);
-  const rankDisp = RANK_MAP[rankChar] || '?';   // z.B. 'A','K','Q','J','10','9',...
-  const suitSym  = suitSymbolByNum(suitNum);    // ♥ ♦ ♠ ♣
-  const colorCls = suitColorClass(suitNum);     // card--red / card--black
+  const rankDisp = RANK_MAP[rankChar] || '?';
+  const suitSym  = suitSymbolByNum(suitNum);
+  const colorCls = suitColorClass(suitNum);
 
   const face = document.createElement('div');
   face.className = `card-face ${colorCls}`;
@@ -302,7 +301,7 @@ async function hostGame(){
   const roomRef = db.collection('rooms').doc(currentRoomCode);
   try{
     await roomRef.set({ host: myNickname, status:'lobby', settings:{cardCount:32,rowCount:3}, externalDisplayEnabled:false, displayCode:null });
-    await roomRef.collection('players').doc(myNickname).set({ joinedAt: firebase.firestore.FieldValue.serverTimestamp(), receivedCards: [], actionConfirmed: true, score: 0 });
+    await roomRef.collection('players').doc(myNickname).set({ joinedAt: firebase.firestore.FieldValue.serverTimestamp(), receivedCards: [], lastReceived: [], actionConfirmed: true, score: 0 });
     setupLobbyListeners(currentRoomCode);
     showScreen('lobby-screen');
     document.getElementById('room-code-display').innerText = currentRoomCode;
@@ -323,7 +322,7 @@ async function joinGame(){
     const playersSnapshot = await roomRef.collection('players').get();
     if(playersSnapshot.docs.some(d=>d.id===myNickname)) throw new Error('Nickname bereits vergeben.');
     if(playersSnapshot.size>=10) throw new Error('Raum ist voll.');
-    await roomRef.collection('players').doc(myNickname).set({ joinedAt: firebase.firestore.FieldValue.serverTimestamp(), receivedCards: [], actionConfirmed: true, score: 0 });
+    await roomRef.collection('players').doc(myNickname).set({ joinedAt: firebase.firestore.FieldValue.serverTimestamp(), receivedCards: [], lastReceived: [], actionConfirmed: true, score: 0 });
     setupLobbyListeners(currentRoomCode);
     showScreen('lobby-screen');
     document.getElementById('room-code-display').innerText = currentRoomCode;
@@ -397,11 +396,13 @@ async function revealPyramidCard(index){
     if(gs.pyramid[index] && !gs.pyramid[index].isRevealed){
       gs.pyramid[index].isRevealed = true;
       triggerCard = gs.pyramid[index].cardValue;
-      const triggerRow = indexToRow(gs.pyramid, index);
+      
       const totalRows = getTotalRows(gs.pyramid);
-      const points = totalRows - triggerRow + 1; // Inverted points logic
+      const triggerRowFromTop = indexToRow(gs.pyramid, index);
+      const points = totalRows - triggerRowFromTop + 1;
+
       gs.currentTrigger = triggerCard;
-      gs.currentRow = triggerRow;
+      gs.currentRow = triggerRowFromTop;
       gs.currentPoints = points;
       gs.giversDone = [];
       gs.requiredGivers = [];
@@ -424,11 +425,13 @@ async function revealNextPyramidCardByHost(){
     if(next!==-1){
       gs.pyramid[next].isRevealed = true;
       triggerCard = gs.pyramid[next].cardValue;
-      const triggerRow = indexToRow(gs.pyramid, next);
+
       const totalRows = getTotalRows(gs.pyramid);
-      const points = totalRows - triggerRow + 1; // Inverted points logic
+      const triggerRowFromTop = indexToRow(gs.pyramid, next);
+      const points = totalRows - triggerRowFromTop + 1;
+
       gs.currentTrigger = triggerCard;
-      gs.currentRow = triggerRow;
+      gs.currentRow = triggerRowFromTop;
       gs.currentPoints = points;
       gs.giversDone = [];
       gs.requiredGivers = [];
@@ -465,12 +468,13 @@ async function revealNextDiscardCard(){
       triggerCard = cardToReveal;
       g.currentTrigger = triggerCard;
       g.currentRow = null;
-      g.currentPoints = null;
+      g.currentPoints = 1; 
       g.giversDone = [];
       g.requiredGivers = [];
       t.update(roomRef,{ gameState: g });
     });
     if(triggerCard){
+      await awardRowPointsOnReveal(triggerCard);
       await computeRequiredGivers(triggerCard);
     }
   }catch(e){ console.error(e); alert('Reststapel-Karte konnte nicht aufgedeckt werden: '+e.message); }
@@ -531,12 +535,13 @@ async function giveCard(){
                 const targetData = targetDocs[targetPlayer].data();
                 const targetReceived = targetData.receivedCards || [];
 
-                const rowPts = Number(gs.currentPoints) || 0;
-                const pointsToAdd = rowPts * cardsForThisPlayer.length; // Simplified scoring
+                const rowPts = Number(gs.currentPoints) || 1;
+                const pointsToAdd = rowPts * cardsForThisPlayer.length;
                 const newScore = (Number(targetData.score) || 0) + pointsToAdd;
 
                 t.update(targetRefs[targetPlayer], {
                     receivedCards: [...targetReceived, ...cardsForThisPlayer],
+                    lastReceived: cardsForThisPlayer,
                     actionConfirmed: false,
                     score: newScore
                 });
@@ -557,7 +562,7 @@ async function giveCard(){
 async function confirmReceivedCard(){
   const playerRef = db.collection('rooms').doc(currentRoomCode).collection('players').doc(myNickname);
   try{
-    await playerRef.update({ actionConfirmed:true });
+    await playerRef.update({ actionConfirmed:true, lastReceived: firebase.firestore.FieldValue.delete() });
     document.getElementById('card-received-overlay').style.display='none';
     await checkTriggerResolved();
   }catch(e){ console.error(e); alert('Bestätigung fehlgeschlagen: '+e.message); }
@@ -601,9 +606,15 @@ function setupGameListeners(roomCode){
       if(p.receivedCards && p.receivedCards.length>0){
         displayCards(p.receivedCards,'received-cards-display');
         receivedArea.style.display='block';
-        if(!p.actionConfirmed){
-          const lastCard = p.receivedCards.slice(-1)[0];
-          document.getElementById('received-card-value').innerText = cardValueToText(lastCard);
+        
+        if(!p.actionConfirmed && p.lastReceived && p.lastReceived.length > 0){
+          const cardTexts = p.lastReceived.map(cardValueToText).join(', ');
+          const cardPlural = p.lastReceived.length > 1 ? 'Karten' : 'Karte';
+          
+          document.querySelector('#card-received-overlay h2').innerText = `${cardPlural} erhalten!`;
+          const pElement = document.querySelector('#card-received-overlay p');
+          pElement.innerHTML = `Du hast die ${cardPlural.toLowerCase()} <strong id="received-card-value">${cardTexts}</strong> erhalten.`;
+          
           document.getElementById('card-received-overlay').style.display='flex';
         }
       }else receivedArea.style.display='none';
@@ -649,11 +660,6 @@ function setupGameListeners(roomCode){
         giveControls.style.display='block';
       }else giveControls.style.display='none';
 
-      const receivedCards = Array.from(document.querySelectorAll('#received-cards-display .card')).map(c=>c.dataset.value);
-      if(receivedCards.some(c=>c.charAt(0)===currentTrigger.charAt(0))){
-        const receivedArea = document.getElementById('received-cards');
-        receivedArea.classList.remove('highlight-animation'); void receivedArea.offsetWidth; receivedArea.classList.add('highlight-animation');
-      }
     }else giveControls.style.display='none';
   });
 }
@@ -761,7 +767,7 @@ async function awardRowPointsOnReveal(triggerCard){
   const rank = String(triggerCard).charAt(0);
   const roomDoc = await roomRef.get();
   const gs = roomDoc.data().gameState||{};
-  const pts = Number(gs.currentPoints)||0;
+  const pts = Number(gs.currentPoints)||1;
   if(!pts) return;
   const playersSnapshot = await roomRef.collection('players').get();
   const updates = [];
